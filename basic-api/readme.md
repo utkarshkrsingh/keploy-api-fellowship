@@ -1,4 +1,4 @@
-# Anime Watch List API
+# ⛩️ Anime Watch List API
 
 A RESTful API for managing your anime watch list, built with Go and MySQL.
 

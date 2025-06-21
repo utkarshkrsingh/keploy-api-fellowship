@@ -44,9 +44,7 @@ func GetList(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": watchList,
-	})
+	c.JSON(http.StatusOK, watchList)
 }
 
 func InsertAnime(c *gin.Context) {
@@ -82,9 +80,7 @@ func InsertAnime(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Anime inserted successfully",
-	})
+	c.JSON(http.StatusOK, watchList)
 }
 
 func Update(c *gin.Context) {
@@ -129,9 +125,7 @@ func Update(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Database updated successfully",
-	})
+	c.JSON(http.StatusOK, watchList)
 
 }
 
@@ -166,7 +160,5 @@ func Delete(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Anime removed successfully",
-	})
+	c.JSON(http.StatusOK, existing)
 }

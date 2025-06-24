@@ -141,6 +141,8 @@ go tool cover -func=coverage.out
 | | `UpdateRecord` endpoint | 76.5% | Update operations API |
 | | `DeleteRecord` endpoint | 100.0% | Deletion API |
 
+<img src="./assets/2025-06-24-073844_hyprshot.png">
+
 ### **Testing Tools & Frameworks**:
 - Go's built-in testing package for unit tests
 - Database mocking for isolated testing

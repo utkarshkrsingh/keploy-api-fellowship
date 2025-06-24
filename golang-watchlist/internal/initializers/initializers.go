@@ -2,12 +2,14 @@ package initializers
 
 import (
 	"log"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
 
 func LoadEnvVariables() {
-	if err := godotenv.Load(""); err != nil {
-		log.Fatal("Failed to load env variables")
+	envPath := filepath.Join(".env")
+	if err := godotenv.Load(envPath); err != nil {
+		log.Fatalf("Failed to load env variables: %v", err)
 	}
 }

@@ -10,13 +10,16 @@ import (
 	"golang-watchlist/internal/models"
 	"golang-watchlist/internal/repository"
 	"golang-watchlist/internal/routes"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
 var testDB *sql.DB
@@ -55,6 +58,10 @@ var _ repository.RecordRepositoryInterface = &mockRecordRepository{}
 // ====================================================================================================
 
 func TestMain(m *testing.M) {
+	envPath := filepath.Join("..", "..", ".env")
+	if err := godotenv.Load(envPath); err != nil {
+		log.Fatalf("Failed to load env variables")
+	}
 	var err error
 	testDB, err := setupTestDB()
 	if err != nil {
@@ -75,11 +82,11 @@ func TestMain(m *testing.M) {
 }
 
 func setupTestDB() (*sql.DB, error) {
-	dbUser := "root"
-	dbPassword := "testqwerty"
-	dbHost := "127.0.0.1"
-	dbPort := "5011"
-	dbName := "test-anime-watch-list"
+	dbUser := os.Getenv("TEST_MYSQL_USER")
+	dbPassword := os.Getenv("TEST_MYSQL_PASSWORD")
+	dbHost := os.Getenv("TEST_MYSQL_HOST")
+	dbPort := os.Getenv("TEST_MYSQL_PORT")
+	dbName := os.Getenv("TEST_MYSQL_DATABASE")
 
 	var err error
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=UTF8mb4&parseTime=True&loc=Local", dbUser, dbPassword, dbHost, dbPort, dbName)

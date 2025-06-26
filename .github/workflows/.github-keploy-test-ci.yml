@@ -1,4 +1,4 @@
-name: CI/CD Pipeline with Keploy and Dual MySQL
+name: CI/CD Pipeline with Keploy and Dual MySQL - Anime Watch List
 
 on:
     push:

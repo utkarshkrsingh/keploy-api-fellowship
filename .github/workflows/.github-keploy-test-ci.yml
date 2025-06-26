@@ -5,7 +5,7 @@ on:
         branches: [main]
 
 env:
-    KEPLOY_API_KEY: 681a05812921eade9b097454@all
+    KEPLOY_API_KEY: 681a05812921eade9b097454
     KEPLOY_APP_ID: ab8b3629-3582-4d21-815d-ccc9886c8cc5
 
 jobs:
@@ -81,7 +81,7 @@ jobs:
               run: |
                   keploy test-suite \
                     --app=$KEPLOY_APP_ID \
-                    --base-path=http://localhost:8080 \
+                    --base-path=http://localhost:8080/watchlist \
                     --cloud
 
                   # Clean up

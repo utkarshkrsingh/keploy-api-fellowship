@@ -4,6 +4,10 @@ on:
     push:
         branches: [main]
 
+env:
+    KEPLOY_API_KEY: 681a05812921eade9b097454@all
+    KEPLOY_APP_ID: ab8b3629-3582-4d21-815d-ccc9886c8cc5
+
 jobs:
     build:
         runs-on: ubuntu-latest
@@ -24,13 +28,12 @@ jobs:
               with:
                   go-version: 1.21
 
-            # Step 3: Start Docker Network
-            - name: Create Docker Network
-              run: docker network create mysql-network
-
-            # Step 4: Run MySQL for Unit Tests (port 5011)
-            - name: Start Unit Test DB (MySQL)
+            # Step 3: Start Docker Network and MySQL containers
+            - name: Setup MySQL databases
               run: |
+                  docker network create mysql-network || true
+
+                  # Unit Test DB
                   docker run -d \
                     --name mysql-anime-watch-list-test \
                     --network mysql-network \
@@ -38,11 +41,8 @@ jobs:
                     -e MYSQL_DATABASE=test-anime-watch-list \
                     -p 5011:3306 \
                     mysql:latest
-                  sleep 15  # Wait for MySQL to initialize
 
-            # Step 5: Run MySQL for Main App (port 5010)
-            - name: Start Main DB (MySQL)
-              run: |
+                  # Main DB
                   docker run -d \
                     --name mysql-anime-watch-list-main \
                     --network mysql-network \
@@ -50,36 +50,40 @@ jobs:
                     -e MYSQL_DATABASE=anime-watch-list \
                     -p 5010:3306 \
                     mysql:latest
-                  sleep 15  # Wait for MySQL to initialize
 
-            # Step 6: Install Go dependencies
+                  # Wait for databases to be ready
+                  sleep 25
+
+            # Step 4: Install Go dependencies
             - name: Install dependencies
               run: go mod tidy
 
-            # Step 7: Run Unit, Integration, and API Tests
+            # Step 5: Run Unit, Integration, and API Tests
             - name: Run Go Tests
               run: go test -v -cover ./...
 
-            # Step 8: Install Keploy
+            # Step 6: Install Keploy
             - name: Setup Keploy
               run: |
                   curl --silent -L https://keploy.io/ent/install.sh | bash
                   echo "$HOME/.keploy/bin" >> $GITHUB_PATH
 
-            # Step 9: Run Keploy Cloud Test Suite
-            - name: Run Keploy Tests
-              env:
-                  KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }} # Store your key in GitHub Secrets
-                  KEPLOY_APP_ID: ${{ secrets.KEPLOY_APP_ID }} # Store your app ID in GitHub Secrets
+            # Step 7: Build and Run Application
+            - name: Build and Run Application
               run: |
-                  # Start your application first (modify this as needed)
-                  go run main.go &
-                  APP_PID=$!
-                  sleep 10  # Wait for app to start
+                  go build -o anime-watch-list ./cmd/server
+                  ./anime-watch-list &
+                  echo $! > app.pid
+                  sleep 10
 
+            # Step 8: Run Keploy Cloud Test Suite
+            - name: Run Keploy Tests
+              run: |
                   keploy test-suite \
                     --app=$KEPLOY_APP_ID \
-                    --base-path=http://localhost:8080/watchlist \
+                    --base-path=http://localhost:8080 \
                     --cloud
 
-                  kill $APP_PID  # Clean up
+                  # Clean up
+                  kill $(cat app.pid)
+                  rm app.pid

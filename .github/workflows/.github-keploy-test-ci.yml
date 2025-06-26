@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for Book Tracker API with Keploy
+name: CI/CD Pipeline with Keploy and Dual MySQL
 
 on:
     push:
@@ -7,32 +7,30 @@ on:
 jobs:
     build:
         runs-on: ubuntu-latest
-        env:
-            MYSQL_ROOT_PASSWORD: qwerty
-            MYSQL_DATABASE: anime-watch-list
-            KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }}
+
+        services:
+            docker:
+                image: docker:24.0.7
+                options: --privileged
 
         steps:
-            # Checkout the code
+            # Step 1: Checkout code
             - name: Checkout code
               uses: actions/checkout@v4.2.2
 
-            # Set up Go
+            # Step 2: Set up Go
             - name: Set up Go
               uses: actions/setup-go@v4
               with:
-                  go-version: 1.24
+                  go-version: 1.21
 
-            # Install dependencies
-            - name: Install Go dependencies
-              run: go mod tidy
+            # Step 3: Start Docker Network
+            - name: Create Docker Network
+              run: |
+                  docker network create mysql-network
 
-            # Create a Docker network
-            - name: Create MySQL Docker network
-              run: docker network create mysql-network
-
-            # Start MySQL container for UNIT tests (port 5011)
-            - name: Start Unit Test DB (write DB)
+            # Step 4: Run MySQL for Unit Tests (port 5011)
+            - name: Start Unit Test DB (MySQL)
               run: |
                   docker run -d \
                     --name mysql-anime-watch-list-test \
@@ -42,36 +40,40 @@ jobs:
                     -p 5011:3306 \
                     mysql
 
-            # Start MySQL container for READ DB (port 5010)
-            - name: Start Read DB
+            # Step 5: Run MySQL for Main App (port 5010)
+            - name: Start Main DB (MySQL)
               run: |
                   docker run -d \
-                    --name mysql-anime-watch-list-read \
+                    --name mysql-anime-watch-list-main \
                     --network mysql-network \
                     -e MYSQL_ROOT_PASSWORD=qwerty \
                     -e MYSQL_DATABASE=anime-watch-list \
                     -p 5010:3306 \
                     mysql
 
-            # Install Keploy
-            - name: Install Keploy
+            # Step 6: Wait for MySQL to become ready
+            - name: Wait for DBs
+              run: sleep 25
+
+            # Step 7: Set up environment
+            - name: Install Go dependencies
+              run: go mod tidy
+
+            # Step 8: Run Unit, Integration, and API Tests
+            - name: Run All Go Tests
+              run: |
+                  go test -v -cover ./...
+
+            # Step 9: Install Keploy
+            - name: Setup Keploy
               run: |
                   curl --silent -L https://keploy.io/ent/install.sh | bash
 
-            # Wait for MySQL to be ready
-            - name: Wait for MySQL to be ready
-              run: |
-                  for i in {1..10}; do
-                    docker exec mysql-anime-watch-list-test mysqladmin ping -h127.0.0.1 -uroot -ptestqwerty && break
-                    sleep 5
-                  done
-
-            # Run tests (unit/integration/api)
-            - name: Run Go tests
-              run: |
-                  go test -v ./...
-
-            # Run Keploy test suite
+            # Step 10: Run Keploy Cloud Test Suite
             - name: Run Keploy Cloud Test Suite
               run: |
-                  keploy test-suite --app=03d24177-315c-4ee1-a3ac-64ed0ab38567 --base-path=http://localhost:8080/books --cloud
+                  keploy test-suite \
+                    --app=03d24177-315c-4ee1-a3ac-64ed0ab38567 \
+                    --base-path=http://localhost:8080/books \
+                    --cloud \
+                    --header "KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }}"

@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for Anime Watch List API with Keploy
+name: CI/CD Pipeline with Keploy, Unit, Integration & API Tests
 
 on:
     push:
@@ -13,20 +13,23 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            # Step 2: Set up Go environment
+            # Step 2: Set up Go
             - name: Set up Go
               uses: actions/setup-go@v4
               with:
                   go-version: 1.24
 
-            # Step 3: Install Go dependencies
+            # Step 3: Install dependencies
             - name: Install dependencies
               run: go mod tidy
 
-            # Step 4: Start MySQL Docker container
-            - name: Start MySQL container
+            # Step 4: Create Docker network
+            - name: Create MySQL Docker network
+              run: docker network create mysql-network
+
+            # Step 5: Start MySQL container for test DB (integration/API)
+            - name: Start Test DB (Port 5011)
               run: |
-                  docker network create mysql-network
                   docker run -d \
                     --name mysql-anime-watch-list-test \
                     --network mysql-network \
@@ -35,27 +38,49 @@ jobs:
                     -p 5011:3306 \
                     mysql:latest
 
-            # Step 5: Wait for MySQL to be ready
-            - name: Wait for MySQL
+            # Step 6: Start MySQL container for unit test read DB (Port 5010)
+            - name: Start Read DB for Unit Tests (Port 5010)
+              run: |
+                  docker run -d \
+                    --name mysql-anime-watch-list-read \
+                    --network mysql-network \
+                    -e MYSQL_ROOT_PASSWORD=qwerty \
+                    -e MYSQL_DATABASE=anime-watch-list \
+                    -p 5010:3306 \
+                    mysql:latest
+
+            # Step 7: Wait for both MySQL DBs to be ready
+            - name: Wait for MySQL readiness
               run: |
                   for i in {1..30}; do
-                    if docker exec mysql-anime-watch-list-test mysqladmin ping -ptestqwerty --silent; then
-                      echo "MySQL is ready!"
+                    if docker exec mysql-anime-watch-list-test mysqladmin ping -ptestqwerty --silent && \
+                       docker exec mysql-anime-watch-list-read mysqladmin ping -pqwerty --silent; then
+                      echo "Both MySQL DBs are ready!"
                       break
                     fi
-                    echo "Waiting for MySQL..."
+                    echo "Waiting for MySQL DBs..."
                     sleep 2
                   done
 
-            # Step 6: Run Go tests
-            - name: Run Go Tests
-              run: go test -v ./tests/...
+            # Step 8: Run Unit Tests
+            - name: Run Unit Tests
+              env:
+                  MYSQL_USER: root
+                  MYSQL_PASSWORD: qwerty
+                  MYSQL_HOST: 127.0.0.1
+                  MYSQL_PORT: 5010
+                  MYSQL_DATABASE: anime-watch-list
+              run: go test -v ./tests/unit/...
 
-            # Step 7: Install Keploy
+            # Step 9: Run Integration + API Tests
+            - name: Run Integration & API Tests
+              run: go test -v ./tests/integration/... ./tests/api/...
+
+            # Step 10: Install Keploy
             - name: Install Keploy
               run: curl --silent -L https://keploy.io/ent/install.sh | bash
 
-            # Step 8: Run Keploy Test Suite
+            # Step 11: Run Keploy Test Suite
             - name: Run Keploy Test Suite
               run: |
                   keploy test-suite \

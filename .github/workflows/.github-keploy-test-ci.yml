@@ -1,86 +1,64 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline for Book Tracker API with Keploy
 
 on:
     push:
         branches: [main]
-    pull_request:
-        branches: [main]
-
-env:
-    GO_VERSION: "1.21"
-    MYSQL_ROOT_PASSWORD: testqwerty
-    MYSQL_DATABASE: test-anime-watch-list
-    MYSQL_PORT: 3306
-    API_PORT: 8080
-    PROJECT_DIR: golang-watchlist
 
 jobs:
-    test:
+    build:
         runs-on: ubuntu-latest
 
-        services:
-            mysql:
-                image: mysql:8.0
-                env:
-                    MYSQL_ROOT_PASSWORD: ${{ env.MYSQL_ROOT_PASSWORD }}
-                    MYSQL_DATABASE: ${{ env.MYSQL_DATABASE }}
-                ports:
-                    - 3306:3306
-                options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
         steps:
+            # Step 1: Checkout the code
             - name: Checkout code
               uses: actions/checkout@v4
 
+            # Step 2: Set up Go environment
             - name: Set up Go
-              uses: actions/setup-go@v5
+              uses: actions/setup-go@v4
               with:
-                  go-version: ${{ env.GO_VERSION }}
+                  go-version: 1.24
 
+            # Step 3: Install Go dependencies
             - name: Install dependencies
-              run: |
-                  cd $PROJECT_DIR
-                  go mod download
+              run: go mod tidy
 
+            # Step 4: Start MySQL Docker container
+            - name: Start MySQL container
+              run: |
+                  docker network create mysql-network
+                  docker run -d \
+                    --name mysql-anime-watch-list-test \
+                    --network mysql-network \
+                    -e MYSQL_ROOT_PASSWORD=testqwerty \
+                    -e MYSQL_DATABASE=test-anime-watch-list \
+                    -p 5011:3306 \
+                    mysql:latest
+
+            # Step 5: Wait for MySQL to be ready
             - name: Wait for MySQL
               run: |
-                  timeout 60s bash -c 'until mysqladmin ping -h 127.0.0.1 -u root -p${{ env.MYSQL_ROOT_PASSWORD }} --silent; do sleep 1; done'
+                  for i in {1..30}; do
+                    if docker exec mysql-anime-watch-list-test mysqladmin ping -ptestqwerty --silent; then
+                      echo "MySQL is ready!"
+                      break
+                    fi
+                    echo "Waiting for MySQL..."
+                    sleep 2
+                  done
 
-            - name: Run unit tests
-              run: |
-                  cd $PROJECT_DIR
-                  go test ./...
+            # Step 6: Run Go tests
+            - name: Run Go Tests
+              run: go test -v ./tests/...
 
-    keploy:
-        runs-on: ubuntu-latest
-        needs: test
-
-        services:
-            mysql:
-                image: mysql:8.0
-                env:
-                    MYSQL_ROOT_PASSWORD: ${{ env.MYSQL_ROOT_PASSWORD }}
-                    MYSQL_DATABASE: ${{ env.MYSQL_DATABASE }}
-                ports:
-                    - 3306:3306
-                options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-
-            - name: Set up Go
-              uses: actions/setup-go@v5
-              with:
-                  go-version: ${{ env.GO_VERSION }}
-
+            # Step 7: Install Keploy
             - name: Install Keploy
-              run: |
-                  curl -sL "https://github.com/keploy/keploy/releases/latest/download/keploy_linux_amd64.tar.gz" | tar xz -C /tmp
-                  sudo mv /tmp/keploy /usr/local/bin
+              run: curl --silent -L https://keploy.io/ent/install.sh | bash
 
-            - name: Build and Run with Keploy
+            # Step 8: Run Keploy Test Suite
+            - name: Run Keploy Test Suite
               run: |
-                  cd $PROJECT_DIR
-                  go build -o app ./cmd/server
-                  keploy test -c "./app" --delay 10 --coverage || true
+                  keploy test-suite \
+                    --app=681a05812921eade9b097454@all \
+                    --base-path http://localhost:8080/books \
+                    --cloud

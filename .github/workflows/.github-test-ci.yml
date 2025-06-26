@@ -1,0 +1,49 @@
+name: CI for Anime Watchlist API
+
+on:
+    push:
+        branches: [main]
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        services:
+            mysql:
+                image: mysql:latest
+                env:
+                    MYSQL_ROOT_PASSWORD: testqwerty
+                    MYSQL_DATABASE: test-anime-watch-list
+                ports:
+                    - 5011:3306
+                options: --health-cmd="mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD" --health-interval=10s --health-timeout=5s --health-retries=5
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4.2.2
+
+            - name: Set up Go
+              uses: actions/setup-go@v4
+              with:
+                  go-version: 1.24
+
+            - name: Install dependencies
+              run: go mod download
+
+            - name: Wait for MySQL to be ready
+              run: |
+                  echo "Waiting for MySQL to be ready on port 5011..."
+                  for i in {1..10}; do
+                    nc -zv 127.0.0.1 5011 && echo "MySQL is up!" && break
+                    echo "Waiting..."
+                    sleep 5
+                  done
+
+            - name: Run tests with coverage
+              env:
+                  DB_PORT: "5011"
+              run: |
+                  go test -v -coverpkg=./internal/db,./internal/handlers,./internal/repository ./tests/... -coverprofile=coverage.out
+
+            - name: Show coverage report
+              run: |
+                  go tool cover -func=coverage.out

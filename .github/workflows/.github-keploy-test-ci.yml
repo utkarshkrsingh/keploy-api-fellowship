@@ -76,4 +76,4 @@ jobs:
                     --app=03d24177-315c-4ee1-a3ac-64ed0ab38567 \
                     --base-path=http://localhost:8080/books \
                     --cloud \
-                    --header "KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }}"
+                    --header "KEPLOY_API_KEY: 681a05812921eade9b097454@all"

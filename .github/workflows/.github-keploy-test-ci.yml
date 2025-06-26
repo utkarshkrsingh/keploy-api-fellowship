@@ -1,4 +1,4 @@
-name: CI/CD Pipeline with Keploy, Unit, Integration & API Tests
+name: CI/CD Pipeline for Book Tracker API with Keploy
 
 on:
     push:
@@ -7,28 +7,32 @@ on:
 jobs:
     build:
         runs-on: ubuntu-latest
+        env:
+            MYSQL_ROOT_PASSWORD: qwerty
+            MYSQL_DATABASE: anime-watch-list
+            KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }}
 
         steps:
-            # Step 1: Checkout the code
+            # Checkout the code
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v4.2.2
 
-            # Step 2: Set up Go
+            # Set up Go
             - name: Set up Go
               uses: actions/setup-go@v4
               with:
                   go-version: 1.24
 
-            # Step 3: Install dependencies
-            - name: Install dependencies
+            # Install dependencies
+            - name: Install Go dependencies
               run: go mod tidy
 
-            # Step 4: Create Docker network
+            # Create a Docker network
             - name: Create MySQL Docker network
               run: docker network create mysql-network
 
-            # Step 5: Start MySQL container for test DB (integration/API)
-            - name: Start Test DB (Port 5011)
+            # Start MySQL container for UNIT tests (port 5011)
+            - name: Start Unit Test DB (write DB)
               run: |
                   docker run -d \
                     --name mysql-anime-watch-list-test \
@@ -36,10 +40,10 @@ jobs:
                     -e MYSQL_ROOT_PASSWORD=testqwerty \
                     -e MYSQL_DATABASE=test-anime-watch-list \
                     -p 5011:3306 \
-                    mysql:latest
+                    mysql
 
-            # Step 6: Start MySQL container for unit test read DB (Port 5010)
-            - name: Start Read DB for Unit Tests (Port 5010)
+            # Start MySQL container for READ DB (port 5010)
+            - name: Start Read DB
               run: |
                   docker run -d \
                     --name mysql-anime-watch-list-read \
@@ -47,43 +51,27 @@ jobs:
                     -e MYSQL_ROOT_PASSWORD=qwerty \
                     -e MYSQL_DATABASE=anime-watch-list \
                     -p 5010:3306 \
-                    mysql:latest
+                    mysql
 
-            # Step 7: Wait for both MySQL DBs to be ready
-            - name: Wait for MySQL readiness
+            # Install Keploy
+            - name: Install Keploy
               run: |
-                  for i in {1..30}; do
-                    if docker exec mysql-anime-watch-list-test mysqladmin ping -ptestqwerty --silent && \
-                       docker exec mysql-anime-watch-list-read mysqladmin ping -pqwerty --silent; then
-                      echo "Both MySQL DBs are ready!"
-                      break
-                    fi
-                    echo "Waiting for MySQL DBs..."
-                    sleep 2
+                  curl --silent -L https://keploy.io/ent/install.sh | bash
+
+            # Wait for MySQL to be ready
+            - name: Wait for MySQL to be ready
+              run: |
+                  for i in {1..10}; do
+                    docker exec mysql-anime-watch-list-test mysqladmin ping -h127.0.0.1 -uroot -ptestqwerty && break
+                    sleep 5
                   done
 
-            # Step 8: Run Unit Tests
-            - name: Run Unit Tests
-              env:
-                  MYSQL_USER: root
-                  MYSQL_PASSWORD: qwerty
-                  MYSQL_HOST: 127.0.0.1
-                  MYSQL_PORT: 5010
-                  MYSQL_DATABASE: anime-watch-list
-              run: go test -v ./tests/unit/...
-
-            # Step 9: Run Integration + API Tests
-            - name: Run Integration & API Tests
-              run: go test -v ./tests/integration/... ./tests/api/...
-
-            # Step 10: Install Keploy
-            - name: Install Keploy
-              run: curl --silent -L https://keploy.io/ent/install.sh | bash
-
-            # Step 11: Run Keploy Test Suite
-            - name: Run Keploy Test Suite
+            # Run tests (unit/integration/api)
+            - name: Run Go tests
               run: |
-                  keploy test-suite \
-                    --app=681a05812921eade9b097454@all \
-                    --base-path http://localhost:8080/books \
-                    --cloud
+                  go test -v ./...
+
+            # Run Keploy test suite
+            - name: Run Keploy Cloud Test Suite
+              run: |
+                  keploy test-suite --app=03d24177-315c-4ee1-a3ac-64ed0ab38567 --base-path=http://localhost:8080/books --cloud

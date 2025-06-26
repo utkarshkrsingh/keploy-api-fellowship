@@ -1,0 +1,429 @@
+openapi: 3.0.3
+info:
+    title: Anime Watch List API
+    description: |
+        A clean, simple RESTful API to manage your anime watch list with Go and MySQL.
+
+        ## Features
+        - Complete CRUD Operations for anime records
+        - Episode tracking (watched vs total episodes)
+        - Status management for watching progress
+        - RESTful design with predictable endpoints
+
+        ## Status Types
+        - `watching` - Currently watching
+        - `completed` - Finished all episodes
+        - `on-hold` - Paused temporarily
+        - `dropped` - Stopped watching
+        - `planning` - Planning to watch later
+    version: 1.0.0
+    contact:
+        name: API Support
+        url: https://github.com/utkarshkrsingh/keploy-api-fellowship/issues
+    license:
+        name: MIT
+        url: https://opensource.org/licenses/MIT
+
+servers:
+    - url: http://localhost:8080
+      description: Local development server
+
+tags:
+    - name: watchlist
+      description: Operations related to anime watch list management
+
+paths:
+    /watchlist:
+        get:
+            tags:
+                - watchlist
+            summary: Get all anime in watch list
+            description: Retrieve all anime records from the user's watch list
+            operationId: getAllAnime
+            responses:
+                "200":
+                    description: Successful response with list of anime
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/AnimeRecord"
+                            examples:
+                                sample_list:
+                                    summary: Sample anime list
+                                    value:
+                                        - id: 3
+                                          title: "Block Lock Season 2"
+                                          total_episodes: 14
+                                          watched_episodes: 14
+                                          type: "tv"
+                                          status: "completed"
+                                        - id: 4
+                                          title: "Potemayo"
+                                          total_episodes: 12
+                                          watched_episodes: 2
+                                          type: "tv"
+                                          status: "watching"
+                                        - id: 5
+                                          title: "Blue Lock"
+                                          total_episodes: 24
+                                          watched_episodes: 24
+                                          type: "tv"
+                                          status: "completed"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+        post:
+            tags:
+                - watchlist
+            summary: Add new anime to watch list
+            description: Create a new anime record in the watch list
+            operationId: createAnime
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/CreateAnimeRequest"
+                        examples:
+                            new_anime:
+                                summary: Add new anime
+                                value:
+                                    title: "Naruto: Shippuden"
+                                    total_episodes: 500
+                                    watched_episodes: 500
+                                    status: "completed"
+                                    type: "tv"
+            responses:
+                "201":
+                    description: Anime successfully created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AnimeRecord"
+                            examples:
+                                created_anime:
+                                    summary: Successfully created anime
+                                    value:
+                                        id: 6
+                                        title: "Naruto: Shippuden"
+                                        total_episodes: 500
+                                        watched_episodes: 500
+                                        type: "tv"
+                                        status: "completed"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /watchlist/{id}:
+        parameters:
+            - name: id
+              in: path
+              required: true
+              description: Unique identifier of the anime record
+              schema:
+                  type: integer
+                  format: int64
+                  minimum: 1
+              example: 4
+
+        patch:
+            tags:
+                - watchlist
+            summary: Update existing anime
+            description: Update an existing anime record in the watch list
+            operationId: updateAnime
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/UpdateAnimeRequest"
+                        examples:
+                            update_progress:
+                                summary: Update watching progress
+                                value:
+                                    title: "Potemayo"
+                                    total_episodes: 12
+                                    watched_episodes: 8
+                                    status: "watching"
+                                    type: "tv"
+            responses:
+                "200":
+                    description: Anime successfully updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AnimeRecord"
+                            examples:
+                                updated_anime:
+                                    summary: Successfully updated anime
+                                    value:
+                                        id: 4
+                                        title: "Potemayo"
+                                        total_episodes: 12
+                                        watched_episodes: 8
+                                        type: "tv"
+                                        status: "watching"
+                "400":
+                    $ref: "#/components/responses/BadRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+        delete:
+            tags:
+                - watchlist
+            summary: Remove anime from watch list
+            description: Delete an anime record from the watch list
+            operationId: deleteAnime
+            responses:
+                "204":
+                    description: Anime successfully deleted
+                    headers:
+                        Date:
+                            description: Date and time of the response
+                            schema:
+                                type: string
+                                format: date-time
+                            example: "Sun, 22 Jun 2025 15:17:23 GMT"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+components:
+    schemas:
+        AnimeRecord:
+            type: object
+            required:
+                - id
+                - title
+                - total_episodes
+                - watched_episodes
+                - type
+                - status
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                    description: Unique identifier for the anime record
+                    example: 1
+                title:
+                    type: string
+                    description: Title of the anime
+                    maxLength: 255
+                    example: "Attack on Titan"
+                total_episodes:
+                    type: integer
+                    format: int32
+                    description: Total number of episodes in the anime
+                    minimum: 0
+                    example: 24
+                watched_episodes:
+                    type: integer
+                    format: int32
+                    description: Number of episodes watched
+                    minimum: 0
+                    example: 12
+                type:
+                    type: string
+                    description: Type of anime content
+                    enum:
+                        - tv
+                        - movie
+                        - ova
+                        - ona
+                        - special
+                        - music
+                    example: "tv"
+                status:
+                    type: string
+                    description: Current watching status
+                    enum:
+                        - watching
+                        - completed
+                        - on-hold
+                        - dropped
+                        - planning
+                    example: "watching"
+
+        CreateAnimeRequest:
+            type: object
+            required:
+                - title
+                - total_episodes
+                - watched_episodes
+                - status
+                - type
+            properties:
+                title:
+                    type: string
+                    description: Title of the anime to add
+                    maxLength: 255
+                    example: "Demon Slayer"
+                total_episodes:
+                    type: integer
+                    format: int32
+                    description: Total number of episodes
+                    minimum: 0
+                    example: 26
+                watched_episodes:
+                    type: integer
+                    format: int32
+                    description: Number of episodes already watched
+                    minimum: 0
+                    example: 0
+                status:
+                    type: string
+                    description: Initial watching status
+                    enum:
+                        - watching
+                        - completed
+                        - on-hold
+                        - dropped
+                        - planning
+                    example: "planning"
+                type:
+                    type: string
+                    description: Type of anime content
+                    enum:
+                        - tv
+                        - movie
+                        - ova
+                        - ona
+                        - special
+                        - music
+                    example: "tv"
+
+        UpdateAnimeRequest:
+            type: object
+            properties:
+                title:
+                    type: string
+                    description: Updated title of the anime
+                    maxLength: 255
+                    example: "Potemayo"
+                total_episodes:
+                    type: integer
+                    format: int32
+                    description: Updated total number of episodes
+                    minimum: 0
+                    example: 24
+                watched_episodes:
+                    type: integer
+                    format: int32
+                    description: Updated number of episodes watched
+                    minimum: 0
+                    example: 15
+                status:
+                    type: string
+                    description: Updated watching status
+                    enum:
+                        - watching
+                        - completed
+                        - on-hold
+                        - dropped
+                        - planning
+                    example: "watching"
+                type:
+                    type: string
+                    description: Updated anime type
+                    enum:
+                        - tv
+                        - movie
+                        - ova
+                        - ona
+                        - special
+                        - music
+                    example: "tv"
+
+        Error:
+            type: object
+            required:
+                - error
+                - message
+            properties:
+                error:
+                    type: string
+                    description: Error type or code
+                    example: "validation_error"
+                message:
+                    type: string
+                    description: Human-readable error message
+                    example: "Invalid request body: missing required field 'title'"
+                details:
+                    type: object
+                    description: Additional error details
+                    additionalProperties: true
+
+    responses:
+        BadRequest:
+            description: Bad request - Invalid input data
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/Error"
+                    examples:
+                        missing_field:
+                            summary: Missing required field
+                            value:
+                                error: "validation_error"
+                                message: "Invalid request body: missing required field 'title'"
+                        invalid_type:
+                            summary: Invalid data type
+                            value:
+                                error: "validation_error"
+                                message: "Invalid value for field 'total_episodes': must be a positive integer"
+
+        NotFound:
+            description: Anime record not found
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/Error"
+                    examples:
+                        not_found:
+                            summary: Record not found
+                            value:
+                                error: "not_found"
+                                message: "Anime record with ID 999 not found"
+
+        ServerError:
+            description: Internal server error
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/Error"
+                    examples:
+                        database_error:
+                            summary: Database connection error
+                            value:
+                                error: "internal_error"
+                                message: "Database connection failed"
+
+    examples:
+        SampleAnimeList:
+            summary: Complete anime watch list
+            value:
+                - id: 1
+                  title: "Attack on Titan"
+                  total_episodes: 24
+                  watched_episodes: 12
+                  type: "tv"
+                  status: "watching"
+                - id: 2
+                  title: "Your Name"
+                  total_episodes: 1
+                  watched_episodes: 1
+                  type: "movie"
+                  status: "completed"
+                - id: 3
+                  title: "Demon Slayer"
+                  total_episodes: 26
+                  watched_episodes: 0
+                  type: "tv"
+                  status: "planning"

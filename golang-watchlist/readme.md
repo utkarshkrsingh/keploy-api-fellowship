@@ -253,7 +253,7 @@ curl -X POST http://localhost:8080/watchlist \
 
 **Request:**
 ```bash
-curl -X PATCH http://localhost:8080/watchlist/4 \
+curl -X PUT http://localhost:8080/watchlist/4 \
   -H "Content-Type: application/json" \
   -d '{
     "total_episodes": 12,

@@ -16,7 +16,7 @@ jobs:
         steps:
             # Step 1: Checkout code
             - name: Checkout code
-              uses: actions/checkout@v4.2.2
+              uses: actions/checkout@v4
 
             # Step 2: Set up Go
             - name: Set up Go
@@ -26,8 +26,7 @@ jobs:
 
             # Step 3: Start Docker Network
             - name: Create Docker Network
-              run: |
-                  docker network create mysql-network
+              run: docker network create mysql-network
 
             # Step 4: Run MySQL for Unit Tests (port 5011)
             - name: Start Unit Test DB (MySQL)
@@ -38,7 +37,8 @@ jobs:
                     -e MYSQL_ROOT_PASSWORD=testqwerty \
                     -e MYSQL_DATABASE=test-anime-watch-list \
                     -p 5011:3306 \
-                    mysql
+                    mysql:latest
+                  sleep 15  # Wait for MySQL to initialize
 
             # Step 5: Run MySQL for Main App (port 5010)
             - name: Start Main DB (MySQL)
@@ -49,31 +49,37 @@ jobs:
                     -e MYSQL_ROOT_PASSWORD=qwerty \
                     -e MYSQL_DATABASE=anime-watch-list \
                     -p 5010:3306 \
-                    mysql
+                    mysql:latest
+                  sleep 15  # Wait for MySQL to initialize
 
-            # Step 6: Wait for MySQL to become ready
-            - name: Wait for DBs
-              run: sleep 25
-
-            # Step 7: Set up environment
-            - name: Install Go dependencies
+            # Step 6: Install Go dependencies
+            - name: Install dependencies
               run: go mod tidy
 
-            # Step 8: Run Unit, Integration, and API Tests
-            - name: Run All Go Tests
-              run: |
-                  go test -v -cover ./...
+            # Step 7: Run Unit, Integration, and API Tests
+            - name: Run Go Tests
+              run: go test -v -cover ./...
 
-            # Step 9: Install Keploy
+            # Step 8: Install Keploy
             - name: Setup Keploy
               run: |
                   curl --silent -L https://keploy.io/ent/install.sh | bash
+                  echo "$HOME/.keploy/bin" >> $GITHUB_PATH
 
-            # Step 10: Run Keploy Cloud Test Suite
-            - name: Run Keploy Cloud Test Suite
+            # Step 9: Run Keploy Cloud Test Suite
+            - name: Run Keploy Tests
+              env:
+                  KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }} # Store your key in GitHub Secrets
+                  KEPLOY_APP_ID: ${{ secrets.KEPLOY_APP_ID }} # Store your app ID in GitHub Secrets
               run: |
+                  # Start your application first (modify this as needed)
+                  go run main.go &
+                  APP_PID=$!
+                  sleep 10  # Wait for app to start
+
                   keploy test-suite \
-                    --app=03d24177-315c-4ee1-a3ac-64ed0ab38567 \
-                    --base-path=http://localhost:8080/books \
-                    --cloud \
-                    --header "KEPLOY_API_KEY: 681a05812921eade9b097454@all"
+                    --app=$KEPLOY_APP_ID \
+                    --base-path=http://localhost:8080/watchlist \
+                    --cloud
+
+                  kill $APP_PID  # Clean up

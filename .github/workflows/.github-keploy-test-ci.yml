@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for Book Tracker API with Keploy
+name: CI/CD Pipeline for Anime Watch List API with Keploy
 
 on:
     push:

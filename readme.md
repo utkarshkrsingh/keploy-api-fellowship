@@ -157,6 +157,21 @@ go tool cover -func=coverage.out
 - ✅ **Database Integration Testing** - Real database interaction validation
 - ✅ **Mocking Strategies** - Isolated unit testing with proper mocks
 
+## 🤖 AI-Powered API Testing with Keploy Cloud
+We integrated Keploy into our CI/CD pipeline to automatically generate and run API tests using AI and our OpenAPI spec.
+
+#### 🚀 What We Used
+- OpenAPI Generation: Keploy inferred schema from our running API and generated an OpenAPI spec
+
+- AI-Powered Test Cases: Based on our schema, Keploy used LLMs to generate real-world test scenarios (positive + negative cases)
+
+- CI/CD Integration: Added `keploy test-suite` to our GitHub Actions workflow using App ID and Keploy API Key
+
+- Dashboard Insight: Used Keploy’s dashboard to view test results, pass/fail trends, and diff history
+
+#### 📸 Screenshot from Dashboard 
+![Keploy Dashboard](./assets/keploy_dashboard.png)
+
 ## 📚 API Reference
 
 ### Endpoints Overview

@@ -23,7 +23,7 @@ jobs:
             - name: Create Docker network
               run: docker network create mysql-network
 
-            - name: Start test MySQL container (port 5011)
+            - name: Start test MySQL database container (port 5011)
               run: |
                   docker run -d \
                     --name mysql-anime-watch-list-test \

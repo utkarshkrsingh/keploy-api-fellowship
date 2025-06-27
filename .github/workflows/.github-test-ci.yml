@@ -7,15 +7,6 @@ on:
 jobs:
     test:
         runs-on: ubuntu-latest
-        services:
-            mysql:
-                image: mysql:latest
-                env:
-                    MYSQL_ROOT_PASSWORD: testqwerty
-                    MYSQL_DATABASE: test-anime-watch-list
-                ports:
-                    - 5011:3306
-                options: --health-cmd="mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD" --health-interval=10s --health-timeout=5s --health-retries=5
 
         steps:
             - name: Checkout code
@@ -29,18 +20,39 @@ jobs:
             - name: Install dependencies
               run: go mod download
 
-            - name: Wait for MySQL to be ready
+            - name: Create Docker network
+              run: docker network create mysql-network
+
+            - name: Start test MySQL container (port 5011)
               run: |
-                  echo "Waiting for MySQL to be ready on port 5011..."
-                  for i in {1..10}; do
-                    nc -zv 127.0.0.1 5011 && echo "MySQL is up!" && break
+                  docker run -d \
+                    --name mysql-anime-watch-list-test \
+                    --network mysql-network \
+                    -e MYSQL_ROOT_PASSWORD=testqwerty \
+                    -e MYSQL_DATABASE=test-anime-watch-list \
+                    -p 5011:3306 \
+                    mysql
+
+            - name: Start read-only MySQL container (port 5010)
+              run: |
+                  docker run -d \
+                    --name mysql-anime-watch-list-read \
+                    --network mysql-network \
+                    -e MYSQL_ROOT_PASSWORD=qwerty \
+                    -e MYSQL_DATABASE=anime-watch-list \
+                    -p 5010:3306 \
+                    mysql
+
+            - name: Wait for MySQL containers to be ready
+              run: |
+                  echo "Waiting for MySQL on ports 5011 and 5010..."
+                  for i in {1..20}; do
+                    nc -zv 127.0.0.1 5011 && nc -zv 127.0.0.1 5010 && echo "Both DBs are up!" && break
                     echo "Waiting..."
-                    sleep 5
+                    sleep 3
                   done
 
-            - name: Run tests with coverage
-              env:
-                  DB_PORT: "5011"
+            - name: Run Go tests with coverage
               run: |
                   go test -v -coverpkg=./internal/db,./internal/handlers,./internal/repository ./tests/... -coverprofile=coverage.out
 

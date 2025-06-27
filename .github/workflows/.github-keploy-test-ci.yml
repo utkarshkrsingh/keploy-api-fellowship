@@ -5,9 +5,8 @@ on:
         branches: [main]
 
 env:
-    KEPLOY_API_KEY: 681a05812921eade9b097454
-    KEPLOY_APP_ID: ab8b3629-3582-4d21-815d-ccc9886c8cc5
-
+    KEPLOY_API_KEY: ${{ secrets.KEPLOY_API_KEY }}
+    KEPLOY_APP_ID: ${{ secrets.KEPLOY_APP_ID }}
 jobs:
     build:
         runs-on: ubuntu-latest

@@ -31,7 +31,9 @@ jobs:
                     -e MYSQL_ROOT_PASSWORD=testqwerty \
                     -e MYSQL_DATABASE=test-anime-watch-list \
                     -p 5011:3306 \
-                    mysql
+                    mysql \
+                    --wait_timeout=28800 \
+                    --interactive_timeout=28800
 
             - name: Start read-only MySQL container (port 5010)
               run: |
@@ -41,18 +43,34 @@ jobs:
                     -e MYSQL_ROOT_PASSWORD=qwerty \
                     -e MYSQL_DATABASE=anime-watch-list \
                     -p 5010:3306 \
-                    mysql
+                    mysql \
+                    --wait_timeout=28800 \
+                    --interactive_timeout=28800
 
             - name: Wait for MySQL containers to be ready
               run: |
-                  echo "Waiting for MySQL on ports 5011 and 5010..."
-                  for i in {1..20}; do
-                    nc -zv 127.0.0.1 5011 && nc -zv 127.0.0.1 5010 && echo "Both DBs are up!" && break
-                    echo "Waiting..."
-                    sleep 3
+                  echo "Waiting for MySQL containers to be ready..."
+                  # Install MySQL client
+                  sudo apt-get update && sudo apt-get install -y mysql-client
+
+                  # Wait for test database
+                  for i in {1..30}; do
+                    mysql -h 127.0.0.1 -P 5011 -u root -ptestqwerty -e "SELECT 1" test-anime-watch-list && break
+                    echo "Waiting for test database..."
+                    sleep 5
+                  done
+
+                  # Wait for read database
+                  for i in {1..30}; do
+                    mysql -h 127.0.0.1 -P 5010 -u root -pqwerty -e "SELECT 1" anime-watch-list && break
+                    echo "Waiting for read database..."
+                    sleep 5
                   done
 
             - name: Run Go tests with coverage
+              env:
+                  TEST_DB_DSN: "root:testqwerty@tcp(127.0.0.1:5011)/test-anime-watch-list?parseTime=true"
+                  READ_DB_DSN: "root:qwerty@tcp(127.0.0.1:5010)/anime-watch-list?parseTime=true"
               run: |
                   go test -v -coverpkg=./internal/db,./internal/handlers,./internal/repository ./tests/... -coverprofile=coverage.out
 
